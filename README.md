@@ -1,12 +1,12 @@
 # 公文格式中转工具
 
-[在线使用](https://wubh2012.github.io/official-document-format-converter/)
+[在线使用](https://blog.aalmix.com/official-document-format-converter/)
 
 一个纯前端的公文内容格式化工具。将已写好的文本按常见公文层级自动识别、预览，并可复制富文本或导出 Word，方便粘贴到 CMS、Word 或 WPS。
 
 ## 使用方法
 
-1. 打开 [在线工具](https://wubh2012.github.io/official-document-format-converter/)。
+1. 打开 [在线工具](https://blog.aalmix.com/official-document-format-converter/)。
 2. 在左侧粘贴或输入公文内容；每一行会作为一个段落，空行会保留。
 3. 在右侧查看识别后的格式；悬停段落可按需修正层级。
 4. 选择“**一键复制**”将富文本粘贴到 CMS、Word 或 WPS，或选择“**导出 Word**”保存文件。
