@@ -314,22 +314,22 @@
       <div class="brand-mark">文</div>
       <div>
         <h1>公文格式中转工具</h1>
-        <p>将已写好的内容按公文层级格式化后，复制到 CMS、Word 或 WPS</p>
+        <p>将已写好的内容自动排版后，复制到 Word、WPS 或单位网站的编辑页面</p>
       </div>
     </div>
     <div class="topbar-right">
       <button id="helpButton" class="help-button" type="button">使用说明</button>
-      <div class="privacy-note">离线运行 · 无账号 · 内容仅保存在本机设备</div>
+      <div class="privacy-note">无需登录 · 内容只保存在这台设备</div>
     </div>
   </header>
 
   <main>
     <section class="action-strip" aria-label="操作流程">
       <div class="step-list" aria-label="三步流程">
-        <span><b>1</b>粘贴内容</span><span class="step-arrow">—</span><span><b>2</b>检查层级</span><span class="step-arrow">—</span><span><b>3</b>复制富文本</span>
+        <span><b>1</b>粘贴内容</span><span class="step-arrow">—</span><span><b>2</b>确认段落格式</span><span class="step-arrow">—</span><span><b>3</b>复制并粘贴</span>
       </div>
       <div class="action-strip-actions">
-        <button id="reanalyzeButton" class="icon-button" type="button" title="按默认规则重新识别">重新识别</button>
+        <button id="reanalyzeButton" class="icon-button" type="button" title="按默认规则重新排版">重新排版</button>
         <button id="exportWordButton" class="secondary-button" type="button">导出 Word</button>
         <button id="copyButton" class="copy-button" type="button">一键复制</button>
       </div>
@@ -338,12 +338,12 @@
     <section class="workspace">
       <div class="editor-panel">
         <div class="panel-head">
-          <div><h3>原始内容</h3><small>每行视为一个段落；空行会被保留</small></div>
-          <div class="panel-head-meta"><span id="editorSummary">0 行 · 0 段</span><span id="savingState" class="saving-state">本机草稿已保存</span></div>
+          <div><h3>输入内容</h3><small>每一行都当作一个段落，空行会保留</small></div>
+          <div class="panel-head-meta"><span id="editorSummary">0 行 · 0 段</span><span id="savingState" class="saving-state">内容已自动保存</span></div>
         </div>
         <div class="editor-body">
           <div id="lineNumbers" class="line-numbers" aria-hidden="true">1</div>
-          <textarea id="sourceInput" spellcheck="false" aria-label="公文原始内容" placeholder="在此输入或粘贴内容，例如：
+          <textarea id="sourceInput" spellcheck="false" aria-label="公文输入内容" placeholder="在此输入或粘贴内容，例如：
 
 关于开展年度工作总结的通知
 
@@ -355,24 +355,24 @@
         </div>
         <div class="editor-bottom">
           <div class="editor-stats"><span id="lineCount">0 个段落</span><span id="charCount">0 字</span></div>
-          <button id="clearDraft" class="secondary-button" type="button">清空本机草稿</button>
+          <button id="clearDraft" class="secondary-button" type="button">清空全部内容</button>
         </div>
       </div>
 
       <div class="preview-panel">
         <div class="panel-head">
-          <div><h3>格式化预览</h3><small>悬停段落即可修正自动识别结果</small></div>
-          <span id="fontState" class="font-state">字体状态 · 检测中</span>
+          <div><h3>排版预览</h3><small>把鼠标移到段落右侧，可选择它的格式</small></div>
+          <span id="fontState" class="font-state">字体情况 · 检查中</span>
         </div>
         <div id="fontWarning" class="font-warning" role="status"></div>
         <div class="preview-scroll">
           <div id="paper" class="paper" aria-live="polite"></div>
         </div>
-        <div id="statusBar" class="status-bar"><span class="status-dot"></span><span id="statusText">等待输入内容</span></div>
+        <div id="statusBar" class="status-bar"><span class="status-dot"></span><span id="statusText">请先输入或粘贴内容</span></div>
       </div>
     </section>
 
-    <p class="footnote"><strong>说明：</strong>复制内容包含 HTML 与纯文本两种格式。若内部 CMS 清除了粘贴内容的 <code>style</code> 或 <code>font-family</code>，网页无法绕过该限制；请在 CMS 中以“保留源格式”粘贴或联系管理员确认编辑器策略。</p>
+    <p class="footnote"><strong>说明：</strong>复制后可直接粘贴到 Word、WPS 或单位网站的编辑页面。若粘贴后字体或段落格式发生变化，请在粘贴时选择“保留原格式”；如仍无效，请改用“导出 Word”。</p>
   </main>
 
   <script>
@@ -480,9 +480,9 @@
         if (!nonEmpty) {
           const placeholder = document.createElement('div');
           placeholder.className = 'empty-preview';
-          placeholder.textContent = '输入内容后，这里会显示可复制的公文层级格式。';
+          placeholder.textContent = '输入内容后，这里会显示排版后的效果。';
           paper.appendChild(placeholder);
-          setStatus('等待输入内容');
+          setStatus('请先输入或粘贴内容');
           return;
         }
 
@@ -497,8 +497,8 @@
 
             const select = document.createElement('select');
             select.className = 'kind-select';
-            select.title = '修改此段的格式类型';
-            select.setAttribute('aria-label', `第 ${block.index + 1} 段的格式类型`);
+            select.title = '选择这一段的格式';
+            select.setAttribute('aria-label', `第 ${block.index + 1} 段的段落格式`);
             TYPE_OPTIONS.forEach(([value, label]) => {
               const option = document.createElement('option');
               option.value = value;
@@ -518,15 +518,15 @@
           }
           paper.appendChild(row);
         });
-        setStatus('检查各段类型后，点击“一键复制”');
+        setStatus('确认各段格式后，点击“一键复制”');
       }
 
       function saveDraft() {
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify({ text: input.value, overrides }));
-          savingState.textContent = '本机草稿已保存';
+          savingState.textContent = '内容已自动保存';
         } catch (error) {
-          savingState.textContent = '草稿保存失败';
+          savingState.textContent = '自动保存失败';
         }
       }
 
@@ -616,7 +616,7 @@
         download.click();
         download.remove();
         window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-        setStatus('已导出 Word 文档：可用 Word 或 WPS 打开', 'success');
+        setStatus('已导出 Word 文档，可用 Word 或 WPS 打开', 'success');
       }
 
       function legacyCopy(html, plainText) {
@@ -670,7 +670,7 @@
         const plainText = input.value.replace(/\r\n?/g, '\n');
         const copied = legacyCopy(html, plainText);
         if (copied) {
-          setStatus('已复制富文本：可直接粘贴到 CMS、Word 或 WPS', 'success');
+          setStatus('已复制，可直接粘贴到 Word、WPS 或单位网站的编辑页面', 'success');
           window.clearTimeout(copyFeedbackTimer);
           copyButton.textContent = '已复制';
           copyButton.classList.add('is-copied');
@@ -700,12 +700,12 @@
         if (!fontWidth('楷体_GB2312') && !fontWidth('楷体')) missing.push('楷体_GB2312');
         if (!fontWidth('仿宋_GB2312') && !fontWidth('仿宋')) missing.push('仿宋_GB2312');
         if (missing.length) {
-          warning.textContent = `本机可能缺少：${missing.join('、')}。预览会使用替代字体；复制到 CMS 后的效果取决于 CMS 服务器和客户端是否安装这些字体。`;
+          warning.textContent = `这台设备未安装：${missing.join('、')}。预览会暂用相近字体；复制或导出后，在其他设备上打开时，若也没有这些字体，排版可能略有不同。`;
           warning.classList.add('show');
-          fontState.textContent = `字体状态 · 缺少 ${missing.length} 项`;
+          fontState.textContent = `字体情况 · 有 ${missing.length} 种未安装`;
           fontState.className = 'font-state is-warning';
         } else {
-          fontState.textContent = '字体状态 · 全部可用';
+          fontState.textContent = '字体情况 · 可正常使用';
           fontState.className = 'font-state is-ok';
         }
       }
@@ -718,19 +718,19 @@
         overrides = {};
         queueSave();
         render();
-        setStatus('已按默认规则重新识别所有段落');
+        setStatus('已按默认规则重新排版所有段落');
       });
       document.getElementById('clearDraft').addEventListener('click', () => {
         if (!input.value && !Object.keys(overrides).length) return;
-        if (!window.confirm('确定清空编辑内容和本机保存的草稿吗？此操作无法恢复。')) return;
+        if (!window.confirm('确定清空输入内容和已保存内容吗？此操作无法恢复。')) return;
         input.value = '';
         overrides = {};
         try { localStorage.removeItem(STORAGE_KEY); } catch (_) { /* 忽略 */ }
-        savingState.textContent = '本机草稿已清空';
+        savingState.textContent = '已清空保存内容';
         render();
       });
       document.getElementById('helpButton').addEventListener('click', () => {
-        window.alert('使用方式：粘贴纯文本，检查右侧段落类型，点击“一键复制”，再粘贴到 CMS、Word 或 WPS。内容只保存在当前浏览器本机。');
+        window.alert('使用方法：粘贴内容，在右侧确认每段的格式，点击“一键复制”，再粘贴到 Word、WPS 或单位网站的编辑页面。内容只保存在这台设备。');
       });
 
       restoreDraft();
