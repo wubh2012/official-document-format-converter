@@ -382,16 +382,14 @@
     <section class="workspace">
       <div class="editor-panel">
         <div class="panel-head">
-          <div><h3>输入内容</h3><small>每一行都当作一个段落，空行会保留</small></div>
+          <div><h3>输入内容</h3><small>每一行是一个段落，空行保留；行首加 # 可精确指定格式</small></div>
           <div class="panel-head-meta"><span id="editorSummary">0 行 · 0 段</span><span id="sampleNote" class="sample-note" hidden>示例范文</span><span id="savingState" class="saving-state">内容已自动保存</span></div>
         </div>
         <div class="editor-body">
           <div id="lineNumbers" class="line-numbers" aria-hidden="true">1</div>
-          <textarea id="sourceInput" spellcheck="false" aria-label="公文输入内容" placeholder="在此输入或粘贴内容，例如：
-
-关于开展年度工作总结的通知
-
-一、总体要求
+          <textarea id="sourceInput" spellcheck="false" aria-label="公文输入内容" placeholder="在此输入或粘贴内容。行首可加 # 标记精确指定格式，例如：
+# 关于开展年度工作总结的通知
+## 一、总体要求
 （一）认真梳理工作成效
 1.明确时间安排
 （1）按时完成材料报送
@@ -425,11 +423,26 @@
   <div id="fontModal" class="modal-overlay" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="fontModalTitle">
       <div class="modal-head">
-        <h2 id="fontModalTitle">字体使用说明</h2>
+        <h2 id="fontModalTitle">使用说明</h2>
         <button id="fontModalClose" class="modal-close" type="button" aria-label="关闭">&times;</button>
       </div>
       <div class="modal-body">
-        <p class="modal-lead">本工具的字体与排版依据 GB/T 9704-2012《党政机关公文格式》国家标准。若设备缺少相应字体，预览与导出时可能略有差异。</p>
+        <p class="modal-lead">输入时每一行当作一个段落，空行保留。行首加 <code>#</code> 标记可精确指定该段格式。</p>
+        <table class="font-table">
+          <thead>
+            <tr><th>格式标记</th><th>段落格式</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code># </code></td><td>标题</td></tr>
+            <tr><td><code>## </code></td><td>一级</td></tr>
+            <tr><td><code>### </code></td><td>二级</td></tr>
+            <tr><td><code>#### </code></td><td>三级</td></tr>
+            <tr><td><code>##### </code></td><td>四级</td></tr>
+            <tr><td>无标记</td><td>自动识别，通常为正文</td></tr>
+          </tbody>
+        </table>
+        <h3 class="modal-sub">公文标准字体</h3>
+        <p>本工具的字体与排版依据 GB/T 9704-2012《党政机关公文格式》国家标准。若设备缺少相应字体，预览与导出时可能略有差异。</p>
         <table class="font-table">
           <thead>
             <tr><th>段落格式</th><th>字体</th><th>字号</th></tr>
@@ -459,7 +472,7 @@
 
       const STORAGE_KEY = 'gongwen-rich-copy-v1';
       const SAMPLE_TEXT = [
-        '关于开展年度工作总结的通知',
+        '# 关于开展年度工作总结的通知',
         '',
         '各区、县人民政府，市政府各部门：',
         '',
@@ -540,6 +553,18 @@
         return `${index}:${text}`;
       }
 
+      const MARKER_TYPES = { 1: 'title', 2: 'h1', 3: 'h2', 4: 'h3', 5: 'h4' };
+      const TYPE_TO_MARKER = { title: '# ', h1: '## ', h2: '### ', h3: '#### ', h4: '##### ', body: '' };
+
+      function markerInfo(text) {
+        const match = /^(#{1,5})(?!\#)\s*/.exec(text);
+        if (!match) return null;
+        const type = MARKER_TYPES[match[1].length];
+        const rest = text.slice(match[0].length).trim();
+        if (!rest) return null;
+        return { type, text: rest };
+      }
+
       function detectType(text, index, firstNonEmpty) {
         if (index === firstNonEmpty) return 'title';
         if (/^[一二三四五六七八九十百千万零〇]+、/.test(text)) return 'h1';
@@ -555,6 +580,8 @@
         return lines.map((raw, index) => {
           const text = raw.trim();
           if (!text) return { index, raw, text: '', type: 'blank', autoType: 'blank', key: keyFor(index, raw) };
+          const marked = markerInfo(text);
+          if (marked) return { index, raw, text: marked.text, autoType: marked.type, type: marked.type, key: keyFor(index, raw), hasMarker: true };
           const autoType = detectType(text, index, firstNonEmpty);
           const key = keyFor(index, raw);
           return { index, raw, text, autoType, type: overrides[key] || autoType, key };
@@ -601,7 +628,7 @@
 
             const select = document.createElement('select');
             select.className = 'kind-select';
-            select.title = '选择这一段的格式';
+            select.title = '选择这一段的格式（也可在行首输入 # 标记精确指定）';
             select.setAttribute('aria-label', `第 ${block.index + 1} 段的段落格式`);
             TYPE_OPTIONS.forEach(([value, label]) => {
               const option = document.createElement('option');
@@ -612,8 +639,15 @@
             });
             select.addEventListener('change', () => {
               const nextType = select.value;
-              if (nextType === block.autoType) delete overrides[block.key];
-              else overrides[block.key] = nextType;
+              if (block.hasMarker) {
+                const lines = input.value.replace(/\r\n?/g, '\n').split('\n');
+                lines[block.index] = lines[block.index].replace(/^(\s*)(#{1,5})(?!\#)\s*/, `$1${TYPE_TO_MARKER[nextType]}`);
+                input.value = lines.join('\n');
+              } else if (nextType === block.autoType) {
+                delete overrides[block.key];
+              } else {
+                overrides[block.key] = nextType;
+              }
               queueSave();
               render();
               setStatus(`第 ${block.index + 1} 段已设为${TYPE_NAMES[nextType]}`);
@@ -778,7 +812,7 @@
           return;
         }
         const html = buildClipboardHtml(blocks);
-        const plainText = input.value.replace(/\r\n?/g, '\n');
+        const plainText = blocks.map((block) => block.text).join('\n');
         const copied = legacyCopy(html, plainText);
         if (copied) {
           setStatus('已复制，可直接粘贴到 Word、WPS 或单位网站的编辑页面', 'success');
