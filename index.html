@@ -262,6 +262,13 @@
     .editor-bottom { min-height: 50px; padding: 10px 18px; border-top-color: var(--line); }
     .editor-stats { display: flex; gap: 13px; color: var(--muted); }
     .editor-stats span + span { padding-left: 13px; border-left: 1px solid var(--line); }
+    .editor-bottom-actions { display: flex; align-items: center; gap: 8px; }
+    .sample-note {
+      display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px;
+      color: var(--blue); background: var(--blue-soft); font-size: 11px; font-weight: 600;
+      white-space: nowrap;
+    }
+    .sample-note[hidden] { display: none; }
     .icon-button, .secondary-button, .copy-button { border-radius: 7px; }
     .icon-button, .secondary-button { padding: 8px 12px; border-color: #cbd5e2; color: #526276; background: #fff; }
     .icon-button:hover, .secondary-button:hover { border-color: #94acd0; color: var(--blue); background: #f6f9ff; }
@@ -306,6 +313,43 @@
       .panel-head-meta { gap: 8px; }
       .saving-state { display: none; }
     }
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 50; display: none;
+      align-items: flex-start; justify-content: center; padding: 80px 20px 20px;
+      background: rgba(15, 30, 50, .45); overflow: auto;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      width: min(560px, 100%); border: 1px solid var(--line); border-radius: 12px;
+      background: #fff; box-shadow: 0 20px 50px rgba(15, 30, 50, .28);
+    }
+    .modal-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 15px 20px; border-bottom: 1px solid var(--line);
+    }
+    .modal-head h2 { margin: 0; font-size: 16px; font-weight: 700; }
+    .modal-close {
+      border: 0; background: transparent; color: var(--muted); cursor: pointer;
+      font-size: 22px; line-height: 1; padding: 2px 6px; border-radius: 6px;
+    }
+    .modal-close:hover { color: var(--blue); background: var(--blue-soft); }
+    .modal-body { padding: 16px 20px 20px; color: var(--ink); font-size: 13px; line-height: 1.7; }
+    .modal-lead { margin: 0 0 12px; color: var(--muted); }
+    .modal-sub { margin: 18px 0 6px; font-size: 13px; font-weight: 700; }
+    .font-table { width: 100%; border-collapse: collapse; margin: 0 0 4px; }
+    .font-table th, .font-table td {
+      padding: 8px 10px; border: 1px solid var(--line); text-align: left; font-weight: 400;
+    }
+    .font-table th { background: var(--blue-soft); color: var(--blue); font-weight: 700; }
+    .font-table td:last-child { white-space: nowrap; }
+    .modal-body code {
+      padding: 1px 5px; border-radius: 4px; background: #eef1f6;
+      font-family: ui-monospace, "Cascadia Mono", monospace;
+    }
+    .modal-links { margin: 4px 0 0; padding-left: 18px; }
+    .modal-links li { margin: 4px 0; }
+    .modal-links a { color: var(--blue); text-decoration: underline; text-underline-offset: 2px; }
+    .modal-links a:hover { color: var(--blue-dark); }
   </style>
 </head>
 <body>
@@ -339,7 +383,7 @@
       <div class="editor-panel">
         <div class="panel-head">
           <div><h3>输入内容</h3><small>每一行都当作一个段落，空行会保留</small></div>
-          <div class="panel-head-meta"><span id="editorSummary">0 行 · 0 段</span><span id="savingState" class="saving-state">内容已自动保存</span></div>
+          <div class="panel-head-meta"><span id="editorSummary">0 行 · 0 段</span><span id="sampleNote" class="sample-note" hidden>示例范文</span><span id="savingState" class="saving-state">内容已自动保存</span></div>
         </div>
         <div class="editor-body">
           <div id="lineNumbers" class="line-numbers" aria-hidden="true">1</div>
@@ -355,7 +399,10 @@
         </div>
         <div class="editor-bottom">
           <div class="editor-stats"><span id="lineCount">0 个段落</span><span id="charCount">0 字</span></div>
-          <button id="clearDraft" class="secondary-button" type="button">清空全部内容</button>
+          <div class="editor-bottom-actions">
+            <button id="fillSample" class="secondary-button" type="button">填入示例</button>
+            <button id="clearDraft" class="secondary-button" type="button">清空全部内容</button>
+          </div>
         </div>
       </div>
 
@@ -375,11 +422,66 @@
     <p class="footnote"><strong>说明：</strong>复制后可直接粘贴到 Word、WPS 或单位网站的编辑页面。若粘贴后字体或段落格式发生变化，请在粘贴时选择“保留原格式”；如仍无效，请改用“导出 Word”。</p>
   </main>
 
+  <div id="fontModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="fontModalTitle">
+      <div class="modal-head">
+        <h2 id="fontModalTitle">字体使用说明</h2>
+        <button id="fontModalClose" class="modal-close" type="button" aria-label="关闭">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-lead">本工具的字体与排版依据 GB/T 9704-2012《党政机关公文格式》国家标准。若设备缺少相应字体，预览与导出时可能略有差异。</p>
+        <table class="font-table">
+          <thead>
+            <tr><th>段落格式</th><th>字体</th><th>字号</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>标题</td><td>方正小标宋简体</td><td>2号（22pt）</td></tr>
+            <tr><td>一级（一、）</td><td>黑体</td><td>3号（16pt）</td></tr>
+            <tr><td>二级（（一））</td><td>楷体_GB2312</td><td>3号（16pt）</td></tr>
+            <tr><td>三级（1.）/ 四级（（1））</td><td>仿宋_GB2312</td><td>3号（16pt）</td></tr>
+            <tr><td>正文</td><td>仿宋_GB2312</td><td>3号（16pt）</td></tr>
+          </tbody>
+        </table>
+        <h3 class="modal-sub">如何安装字体</h3>
+        <p>将字体文件（.ttf 或 .otf）复制到 <code>C:\Windows\Fonts</code> 文件夹，或在系统「设置 → 个性化 → 字体」中拖入安装，安装后需重启 Word、WPS 或浏览器才能生效。</p>
+        <h3 class="modal-sub">规范来源</h3>
+        <ul class="modal-links">
+          <li><a href="https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=F3CC9BEF482524C895FDA7A08BB4A70E" target="_blank" rel="noopener noreferrer">GB/T 9704-2012《党政机关公文格式》— 国家标准全文公开系统</a></li>
+          <li><a href="https://www.gov.cn/zhengce/2013-02/22/content_2640088.htm" target="_blank" rel="noopener noreferrer">《党政机关公文处理工作条例》（中办发〔2012〕14号）— 中国政府网</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
   <script>
     (() => {
       'use strict';
 
       const STORAGE_KEY = 'gongwen-rich-copy-v1';
+      const SAMPLE_TEXT = [
+        '关于开展年度工作总结的通知',
+        '',
+        '各区、县人民政府，市政府各部门：',
+        '',
+        '一、总体要求',
+        '（一）提高思想认识',
+        '1.明确工作目标',
+        '（1）按时完成报送',
+        '各单位要高度重视年度工作总结工作，认真对照年初确定的目标任务，全面梳理工作完成情况，深入分析存在的困难和问题，确保总结内容真实准确、重点突出。',
+        '',
+        '二、工作安排',
+        '（一）时间安排',
+        '1.总结材料应于2026年1月20日前报送市政府办公室。',
+        '2.逾期未报送的单位，将予以通报。',
+        '（二）内容要求',
+        '总结材料应当事实清楚、数据准确、结构完整，既要全面总结成绩，也要如实查找不足，并明确提出下一步工作打算。',
+        '',
+        '三、有关要求',
+        '（一）加强组织领导',
+        '各单位主要负责人要亲自抓、负总责，明确专人负责总结起草工作，确保按时保质完成任务。',
+        '（二）严格审核把关',
+        '各区、县人民政府办公室要对报送材料进行严格审核，确保内容真实、格式规范、文字精炼。'
+      ].join('\n');
       const TYPE_OPTIONS = [
         ['title', '标题'], ['h1', '一级'], ['h2', '二级'], ['h3', '三级'], ['h4', '四级'], ['body', '正文']
       ];
@@ -419,6 +521,7 @@
       const editorSummary = document.getElementById('editorSummary');
       const lineNumbers = document.getElementById('lineNumbers');
       const savingState = document.getElementById('savingState');
+      const sampleNote = document.getElementById('sampleNote');
       const statusBar = document.getElementById('statusBar');
       const statusText = document.getElementById('statusText');
       const warning = document.getElementById('fontWarning');
@@ -472,6 +575,7 @@
         const nonEmpty = blocks.filter((block) => block.type !== 'blank').length;
         const lineTotal = Math.max(1, blocks.length);
         const characterTotal = input.value.replace(/\s/g, '').length;
+        sampleNote.hidden = input.value !== SAMPLE_TEXT;
         renderLineNumbers(lineTotal);
         lineCount.textContent = `${nonEmpty} 个段落${blocks.length - nonEmpty ? `，${blocks.length - nonEmpty} 个空行` : ''}`;
         charCount.textContent = `${characterTotal} 字`;
@@ -537,14 +641,21 @@
       }
 
       function restoreDraft() {
+        let restored = false;
         try {
           const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
           if (saved && typeof saved.text === 'string') {
             input.value = saved.text;
             overrides = saved.overrides && typeof saved.overrides === 'object' ? saved.overrides : {};
+            restored = true;
           }
         } catch (_) {
           overrides = {};
+        }
+        if (!restored) {
+          input.value = SAMPLE_TEXT;
+          overrides = {};
+          savingState.textContent = '示例范文，可直接编辑';
         }
       }
 
@@ -729,8 +840,34 @@
         savingState.textContent = '已清空保存内容';
         render();
       });
-      document.getElementById('helpButton').addEventListener('click', () => {
-        window.alert('使用方法：粘贴内容，在右侧确认每段的格式，点击“一键复制”，再粘贴到 Word、WPS 或单位网站的编辑页面。内容只保存在这台设备。');
+      document.getElementById('fillSample').addEventListener('click', () => {
+        input.value = SAMPLE_TEXT;
+        overrides = {};
+        queueSave();
+        render();
+        setStatus('已填入示例内容，可在右侧确认段落格式后复制或导出');
+      });
+      const fontModal = document.getElementById('fontModal');
+      const fontModalClose = document.getElementById('fontModalClose');
+
+      function openFontModal() {
+        fontModal.classList.add('open');
+        fontModal.setAttribute('aria-hidden', 'false');
+        fontModalClose.focus();
+      }
+
+      function closeFontModal() {
+        fontModal.classList.remove('open');
+        fontModal.setAttribute('aria-hidden', 'true');
+      }
+
+      document.getElementById('helpButton').addEventListener('click', openFontModal);
+      fontModalClose.addEventListener('click', closeFontModal);
+      fontModal.addEventListener('click', (event) => {
+        if (event.target === fontModal) closeFontModal();
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && fontModal.classList.contains('open')) closeFontModal();
       });
 
       restoreDraft();
