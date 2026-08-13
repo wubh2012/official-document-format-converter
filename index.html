@@ -235,9 +235,11 @@
     .step-list .step-arrow { color: #c2cad5; font-size: 16px; }
     .action-strip-actions { display: flex; align-items: center; gap: 10px; }
     .workspace {
-      grid-template-columns: minmax(390px, .92fr) minmax(540px, 1.08fr); min-height: 665px;
+      grid-template-columns: minmax(390px, .92fr) minmax(540px, 1.08fr);
+      height: calc(100vh - 232px); min-height: 560px;
       overflow: hidden; border: 1px solid var(--line); border-radius: 10px; box-shadow: none;
     }
+    .editor-panel, .preview-panel { min-height: 0; }
     .editor-panel { border-right-color: var(--line); background: #fff; }
     .preview-panel { background: #f8faff; }
     .panel-head { min-height: 54px; padding: 11px 18px; border-bottom-color: var(--line); background: rgba(255,255,255,.74); }
@@ -279,7 +281,28 @@
       margin: 0; padding: 7px 18px; border: 0; border-bottom: 1px solid #f0dfbd; border-radius: 0;
       color: var(--amber); background: var(--amber-soft); font-size: 12px; line-height: 1.5;
     }
-    .preview-scroll { padding: 20px 22px 22px; }
+    .preview-scroll { padding: 20px 22px 22px; position: relative; }
+    .a4-page {
+      width: min(560px, 100%); aspect-ratio: 210 / 297; margin: 0 auto 16px;
+      background: var(--paper); border: 1px solid #dde5ef; box-shadow: 0 1px 3px rgba(26, 49, 81, .07);
+    }
+    .a4-page:last-child { margin-bottom: 0; }
+    .a4-inner { height: 100%; padding: 50px 58px 46px 56px; }
+    .fullpage-modal {
+      position: fixed; inset: 0; z-index: 60; display: none; flex-direction: column;
+      background: #e8edf4;
+    }
+    .fullpage-modal.open { display: flex; }
+    .fullpage-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      min-height: 54px; padding: 10px 20px; border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+    .fullpage-head h2 { margin: 0; font-size: 15px; font-weight: 700; }
+    .fullpage-body { flex: 1; overflow: auto; padding: 26px 22px 44px; position: relative; }
+    .fullpage-body .a4-page { width: min(794px, 100%); margin-bottom: 26px; }
+    .fullpage-body .a4-page:last-child { margin-bottom: 0; }
+    .fullpage-body .kind-select { right: -6px; }
     .paper {
       width: 100%; min-height: 558px; margin: 0; padding: 38px 54px 50px; border-color: #dde5ef;
       box-shadow: 0 1px 3px rgba(26, 49, 81, .07);
@@ -299,7 +322,7 @@
       .topbar { padding-inline: 20px; }
       main { padding-inline: 20px; }
       .action-strip { align-items: flex-start; flex-direction: column; padding: 4px 0 12px; }
-      .workspace { grid-template-columns: 1fr; }
+      .workspace { grid-template-columns: 1fr; height: auto; }
       .editor-panel { min-height: 410px; border-right: 0; border-bottom: 1px solid var(--line); }
       .preview-panel { min-height: 570px; }
       .paper { padding-inline: 32px; }
@@ -407,7 +430,10 @@
       <div class="preview-panel">
         <div class="panel-head">
           <div><h3>排版预览</h3><small>把鼠标移到段落右侧，可选择它的格式</small></div>
-          <span id="fontState" class="font-state">字体情况 · 检查中</span>
+          <div class="preview-head-actions">
+            <button id="fullpageButton" class="icon-button" type="button" title="全屏查看整份文档的 A4 页面效果">全页预览</button>
+            <span id="fontState" class="font-state">字体情况 · 检查中</span>
+          </div>
         </div>
         <div id="fontWarning" class="font-warning" role="status"></div>
         <div class="preview-scroll">
@@ -464,6 +490,14 @@
         </ul>
       </div>
     </div>
+  </div>
+
+  <div id="fullpageModal" class="fullpage-modal" role="dialog" aria-modal="true" aria-labelledby="fullpageTitle" aria-hidden="true">
+    <div class="fullpage-head">
+      <h2 id="fullpageTitle">全页预览 · A4</h2>
+      <button id="fullpageClose" class="modal-close" type="button" aria-label="关闭">&times;</button>
+    </div>
+    <div id="fullpageBody" class="fullpage-body"></div>
   </div>
 
   <script>
@@ -529,6 +563,7 @@
 
       const input = document.getElementById('sourceInput');
       const paper = document.getElementById('paper');
+      const previewScroll = document.querySelector('.preview-scroll');
       const lineCount = document.getElementById('lineCount');
       const charCount = document.getElementById('charCount');
       const editorSummary = document.getElementById('editorSummary');
@@ -541,9 +576,32 @@
       const fontState = document.getElementById('fontState');
       const copyButton = document.getElementById('copyButton');
       const exportWordButton = document.getElementById('exportWordButton');
+      const fullpageButton = document.getElementById('fullpageButton');
+      const fullpageModal = document.getElementById('fullpageModal');
+      const fullpageClose = document.getElementById('fullpageClose');
+      const fullpageBody = document.getElementById('fullpageBody');
       let overrides = {};
       let saveTimer = null;
       let copyFeedbackTimer = null;
+
+      function syncPreviewFromEditor() {
+        const maxEditor = input.scrollHeight - input.clientHeight;
+        const maxPreview = previewScroll.scrollHeight - previewScroll.clientHeight;
+        if (maxEditor <= 0 || maxPreview <= 0) return;
+        const target = (input.scrollTop / maxEditor) * maxPreview;
+        if (Math.abs(previewScroll.scrollTop - target) > 1) previewScroll.scrollTop = target;
+      }
+
+      function syncEditorFromPreview() {
+        const maxEditor = input.scrollHeight - input.clientHeight;
+        const maxPreview = previewScroll.scrollHeight - previewScroll.clientHeight;
+        if (maxEditor <= 0 || maxPreview <= 0) return;
+        const target = (previewScroll.scrollTop / maxPreview) * maxEditor;
+        if (Math.abs(input.scrollTop - target) > 1) {
+          input.scrollTop = target;
+          lineNumbers.scrollTop = target;
+        }
+      }
 
       function escapeHtml(value) {
         return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char]);
@@ -597,27 +655,57 @@
         lineNumbers.textContent = Array.from({ length: Math.max(1, lineTotal) }, (_, index) => index + 1).join('\n');
       }
 
-      function render() {
-        const blocks = getBlocks();
-        const nonEmpty = blocks.filter((block) => block.type !== 'blank').length;
-        const lineTotal = Math.max(1, blocks.length);
-        const characterTotal = input.value.replace(/\s/g, '').length;
-        sampleNote.hidden = input.value !== SAMPLE_TEXT;
-        renderLineNumbers(lineTotal);
-        lineCount.textContent = `${nonEmpty} 个段落${blocks.length - nonEmpty ? `，${blocks.length - nonEmpty} 个空行` : ''}`;
-        charCount.textContent = `${characterTotal} 字`;
-        editorSummary.textContent = `${lineTotal} 行 · ${nonEmpty} 段`;
-        paper.replaceChildren();
-        if (!nonEmpty) {
-          const placeholder = document.createElement('div');
-          placeholder.className = 'empty-preview';
-          placeholder.textContent = '输入内容后，这里会显示排版后的效果。';
-          paper.appendChild(placeholder);
-          setStatus('请先输入或粘贴内容');
-          return;
-        }
+      function getPageContentMetrics(container) {
+        const template = document.createElement('div');
+        template.className = 'a4-page';
+        template.style.cssText = 'position:absolute;top:0;left:-99999px;visibility:hidden;pointer-events:none;';
+        const inner = document.createElement('div');
+        inner.className = 'a4-inner';
+        template.appendChild(inner);
+        container.appendChild(template);
+        const computed = getComputedStyle(inner);
+        const contentWidth = inner.clientWidth - parseFloat(computed.paddingLeft) - parseFloat(computed.paddingRight);
+        const contentHeight = inner.clientHeight - parseFloat(computed.paddingTop) - parseFloat(computed.paddingBottom);
+        template.remove();
+        return { contentWidth, contentHeight };
+      }
 
-        blocks.forEach((block) => {
+      function paginateRows(rows, container) {
+        const { contentWidth, contentHeight } = getPageContentMetrics(container);
+        const measurer = document.createElement('div');
+        measurer.style.cssText = `position:absolute;top:0;left:-99999px;visibility:hidden;pointer-events:none;width:${contentWidth}px;`;
+        container.appendChild(measurer);
+        rows.forEach((row) => measurer.appendChild(row));
+        const pages = [];
+        let start = 0;
+        for (let index = 0; index < rows.length; index++) {
+          const bottom = rows[index].offsetTop + rows[index].offsetHeight;
+          if (index > start && bottom - rows[start].offsetTop > contentHeight) {
+            pages.push(rows.slice(start, index));
+            start = index;
+          }
+        }
+        pages.push(rows.slice(start));
+        measurer.remove();
+        return pages;
+      }
+
+      function buildPaginatedView(rows, container) {
+        container.replaceChildren();
+        paginateRows(rows, container).forEach((group) => {
+          const page = document.createElement('div');
+          page.className = 'a4-page';
+          const inner = document.createElement('div');
+          inner.className = 'a4-inner';
+          group.forEach((row) => inner.appendChild(row));
+          page.appendChild(inner);
+          container.appendChild(page);
+        });
+      }
+
+      function createRows() {
+        const rows = [];
+        getBlocks().forEach((block) => {
           const row = document.createElement('div');
           row.className = `preview-row ${block.type === 'blank' ? 'blank' : ''}`;
           if (block.type !== 'blank') {
@@ -654,8 +742,51 @@
             });
             row.appendChild(select);
           }
-          paper.appendChild(row);
+          rows.push(row);
         });
+        return rows;
+      }
+
+      function openFullpage() {
+        const nonEmpty = getBlocks().filter((block) => block.type !== 'blank').length;
+        if (!nonEmpty) {
+          setStatus('请先输入需要预览的内容', 'error');
+          input.focus();
+          return;
+        }
+        fullpageModal.classList.add('open');
+        buildPaginatedView(createRows(), fullpageBody);
+        fullpageBody.scrollTop = 0;
+        fullpageModal.setAttribute('aria-hidden', 'false');
+        fullpageClose.focus();
+      }
+
+      function closeFullpage() {
+        fullpageModal.classList.remove('open');
+        fullpageModal.setAttribute('aria-hidden', 'true');
+        fullpageBody.replaceChildren();
+      }
+
+      function render() {
+        const blocks = getBlocks();
+        const nonEmpty = blocks.filter((block) => block.type !== 'blank').length;
+        const lineTotal = Math.max(1, blocks.length);
+        const characterTotal = input.value.replace(/\s/g, '').length;
+        sampleNote.hidden = input.value !== SAMPLE_TEXT;
+        renderLineNumbers(lineTotal);
+        lineCount.textContent = `${nonEmpty} 个段落${blocks.length - nonEmpty ? `，${blocks.length - nonEmpty} 个空行` : ''}`;
+        charCount.textContent = `${characterTotal} 字`;
+        editorSummary.textContent = `${lineTotal} 行 · ${nonEmpty} 段`;
+        paper.replaceChildren();
+        if (!nonEmpty) {
+          const placeholder = document.createElement('div');
+          placeholder.className = 'empty-preview';
+          placeholder.textContent = '输入内容后，这里会显示排版后的效果。';
+          paper.appendChild(placeholder);
+          setStatus('请先输入或粘贴内容');
+          return;
+        }
+        createRows().forEach((row) => paper.appendChild(row));
         setStatus('确认各段格式后，点击“一键复制”');
       }
 
@@ -856,7 +987,30 @@
       }
 
       input.addEventListener('input', () => { queueSave(); render(); });
-      input.addEventListener('scroll', () => { lineNumbers.scrollTop = input.scrollTop; });
+      input.addEventListener('scroll', () => {
+        lineNumbers.scrollTop = input.scrollTop;
+        syncPreviewFromEditor();
+      });
+      previewScroll.addEventListener('scroll', syncEditorFromPreview);
+      fullpageButton.addEventListener('click', openFullpage);
+      fullpageClose.addEventListener('click', closeFullpage);
+      fullpageModal.addEventListener('click', (event) => {
+        if (event.target === fullpageModal) closeFullpage();
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && fullpageModal.classList.contains('open')) closeFullpage();
+      });
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => {
+          if (fullpageModal.classList.contains('open')) openFullpage();
+        });
+      }
+      window.addEventListener('resize', () => {
+        if (!fullpageModal.classList.contains('open')) return;
+        const top = fullpageBody.scrollTop;
+        openFullpage();
+        fullpageBody.scrollTop = top;
+      });
       copyButton.addEventListener('click', copyToClipboard);
       exportWordButton.addEventListener('click', exportWord);
       document.getElementById('reanalyzeButton').addEventListener('click', () => {
