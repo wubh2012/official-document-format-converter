@@ -157,6 +157,7 @@
       background: #fff;
     }
     .fullpage-head h2 { margin: 0; font-size: 15px; font-weight: 700; }
+    .fullpage-head-actions { display: flex; align-items: center; gap: 10px; }
     .fullpage-body { flex: 1; overflow: auto; padding: 26px 22px 44px; position: relative; }
     .fullpage-body .a4-page { width: min(794px, 100%); margin-bottom: 26px; }
     .fullpage-body .a4-page:last-child { margin-bottom: 0; }
@@ -272,6 +273,18 @@
     .modal-links li { margin: 4px 0; }
     .modal-links a { color: var(--blue); text-decoration: underline; text-underline-offset: 2px; }
     .modal-links a:hover { color: var(--blue-dark); }
+    @media print {
+      body { background: #fff; min-width: 0; }
+      .topbar, main, .modal-overlay { display: none !important; }
+      .fullpage-modal { display: block !important; position: static; inset: auto; background: #fff; }
+      .fullpage-modal:not(.open) { display: none !important; }
+      .fullpage-head { display: none !important; }
+      .fullpage-body { overflow: visible !important; padding: 0 !important; background: #fff; }
+      .fullpage-body .a4-page { box-shadow: none !important; border: none !important; margin: 0 auto !important; page-break-after: always; }
+      .fullpage-body .a4-page:last-child { page-break-after: auto; }
+      .kind-select { display: none !important; }
+      .preview-row.blank { display: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -395,7 +408,10 @@
   <div id="fullpageModal" class="fullpage-modal" role="dialog" aria-modal="true" aria-labelledby="fullpageTitle" aria-hidden="true">
     <div class="fullpage-head">
       <h2 id="fullpageTitle">全页预览 · A4</h2>
-      <button id="fullpageClose" class="modal-close" type="button" aria-label="关闭">&times;</button>
+      <div class="fullpage-head-actions">
+        <button id="fullpagePrint" class="icon-button" type="button" title="打印预览内容">打印</button>
+        <button id="fullpageClose" class="modal-close" type="button" aria-label="关闭">&times;</button>
+      </div>
     </div>
     <div id="fullpageBody" class="fullpage-body"></div>
   </div>
@@ -493,6 +509,7 @@
       const fullpageButton = document.getElementById('fullpageButton');
       const fullpageModal = document.getElementById('fullpageModal');
       const fullpageClose = document.getElementById('fullpageClose');
+      const fullpagePrint = document.getElementById('fullpagePrint');
       const fullpageBody = document.getElementById('fullpageBody');
       const copyFallbackModal = document.getElementById('copyFallbackModal');
       const copyFallbackClose = document.getElementById('copyFallbackClose');
@@ -940,6 +957,10 @@
       previewScroll.addEventListener('scroll', syncEditorFromPreview);
       fullpageButton.addEventListener('click', openFullpage);
       fullpageClose.addEventListener('click', closeFullpage);
+      fullpagePrint.addEventListener('click', () => {
+        if (!fullpageModal.classList.contains('open')) return;
+        window.print();
+      });
       fullpageModal.addEventListener('click', (event) => {
         if (event.target === fullpageModal) closeFullpage();
       });
